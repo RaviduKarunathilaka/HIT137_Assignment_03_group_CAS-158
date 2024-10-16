@@ -30,52 +30,62 @@ pygame.display.set_caption("2D game window")
 # Set the frame rate
 clock = pygame.time.Clock()
 
-###  creating player classes  ####
-
+### creating player classes ####
 class Player(pygame.sprite.Sprite):
     def __init__(self):
         super().__init__()
 
-# Load the image of the player (replace 'hero_image.png' with your actual image file)
+        # Load the image of the player (replace 'hero_image.png' with your actual image file)
         self.image = pygame.image.load('hero_image.png').convert_alpha()
         self.image = pygame.transform.scale(self.image, (50, 50))  # Resize the image if needed
 
+        # Set the initial position of the player at middle left of the screen
         self.rect = self.image.get_rect()
-        self.rect.center = (100, HEIGHT - 100)
-        self.speed_x = 0
-        self.speed_y = 0
-        self.gravity = 0.8
-        self.jump_strength = -15
-        self.health = 100
-        self.lives = 3
+        self.rect.center = (50, HEIGHT // 2)  # Middle-left position of the screen
+        self.speed_x = 0  # Horizontal speed initialized to 0
+        self.speed_y = 0  # Vertical speed initialized to 0
+        self.speed = 5  # Movement speed
+        self.health = 100  # health
+        self.lives = 3  # lives
 
     def update(self):
-        self.speed_y += self.gravity
+        # Update the player's position based on current speed (speed_x and speed_y)
         self.rect.x += self.speed_x
         self.rect.y += self.speed_y
-        
-        # Stay on the screen
+
+        # Ensure the player stays within screen boundaries (left, right, top, bottom)
         if self.rect.right > WIDTH:
-            self.rect.right = WIDTH
+            self.rect.right = WIDTH  # Prevent moving past the right edge
         if self.rect.left < 0:
-            self.rect.left = 0
-        
-        if self.rect.bottom > HEIGHT - 50:
-            self.rect.bottom = HEIGHT - 50
-            self.speed_y = 0
+            self.rect.left = 0  # Prevent moving past the left edge
+        if self.rect.bottom > HEIGHT:
+            self.rect.bottom = HEIGHT  # Prevent moving past the bottom edge
+        if self.rect.top < 0:
+            self.rect.top = 0  # Prevent moving past the top edge
 
-    def jump(self):
-        if self.rect.bottom >= HEIGHT - 50:  # Can only jump if on the ground
-            self.speed_y = self.jump_strength
-
+    # Move the player left by setting the horizontal speed
     def move_left(self):
-        self.speed_x = -5
+        self.speed_x = -self.speed
 
+    # Move the player right by setting the horizontal speed
     def move_right(self):
-        self.speed_x = 5
+        self.speed_x = self.speed
 
-    def stop(self):
+    # Move the player up by setting the vertical speed
+    def move_up(self):
+        self.speed_y = -self.speed
+
+    # Move the player down by setting the vertical speed
+    def move_down(self):
+        self.speed_y = self.speed
+
+    # Stop horizontal movement (reset horizontal speed to 0)
+    def stop_horizontal(self):
         self.speed_x = 0
+
+    # Stop vertical movement (reset vertical speed to 0)
+    def stop_vertical(self):
+        self.speed_y = 0
 
 ### creating projectile class ###
 
@@ -157,22 +167,20 @@ class Camera:
 
 camera = Camera()
 
-### main loop ###
+### Main game loop ###
+# Constants for enemy spawning
+ENEMY_SPAWN_TIME = 2000  # 2 seconds for enemy spawn timer
+pygame.time.set_timer(pygame.USEREVENT, ENEMY_SPAWN_TIME)
 
 # Sprite groups
 all_sprites = pygame.sprite.Group()
-projectiles = pygame.sprite.Group()
-enemies = pygame.sprite.Group()
-collectibles = pygame.sprite.Group()
+enemies = pygame.sprite.Group()  # Group for enemies
+projectiles = pygame.sprite.Group()  # Group for projectiles
+collectibles = pygame.sprite.Group()  # Group for collectibles
 
-# Player object
 player = Player()
 all_sprites.add(player)
 
-# Initialize score and other variables at the top
-score = 0
-
-# Game Loop
 running = True
 while running:
     clock.tick(FPS)
@@ -181,54 +189,49 @@ while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
-        elif event.type == pygame.USEREVENT:  # Check for the custom event to spawn enemies
-            enemy = Enemy(WIDTH, random.randint(50, HEIGHT - 50), player)
+
+        # Spawn an enemy every time the timer event occurs
+        if event.type == pygame.USEREVENT:
+            # Spawn an enemy at a random position on the right side
+            enemy_x = WIDTH - 40
+            enemy_y = random.randint(0, HEIGHT - 40)
+            enemy = Enemy(enemy_x, enemy_y, player)
             all_sprites.add(enemy)
             enemies.add(enemy)
 
+    # Get the state of all keyboard keys
     keys = pygame.key.get_pressed()
+
+    # Handle movement
     if keys[pygame.K_LEFT]:
         player.move_left()
     elif keys[pygame.K_RIGHT]:
         player.move_right()
     else:
-        player.stop()
+        player.stop_horizontal()
 
-    if keys[pygame.K_SPACE]:
-        player.jump()
+    if keys[pygame.K_UP]:
+        player.move_up()
+    elif keys[pygame.K_DOWN]:
+        player.move_down()
+    else:
+        player.stop_vertical()
 
-    if keys[pygame.K_z]:  # Shoot projectile
-        projectile = Projectile(player.rect.right, player.rect.centery)
+    # Fire projectile when pressing 'Z'
+    if keys[pygame.K_z]:
+        projectile = Projectile(player.rect.centerx, player.rect.centery)
         all_sprites.add(projectile)
         projectiles.add(projectile)
 
-    # Update
+    # Update game logic
     all_sprites.update()
-    camera.update(player)
+
+    # Check for projectile-enemy collisions
+    hits = pygame.sprite.groupcollide(projectiles, enemies, True, True)
 
     # Drawing
-    screen.fill(WHITE)
-    for sprite in all_sprites:
-        screen.blit(sprite.image, camera.apply(sprite.rect))
-
-    # Check for collisions between projectiles and enemies
-    hits = pygame.sprite.groupcollide(projectiles, enemies, True, True)
-    for hit in hits:
-        score += 10  # Increment score for each enemy hit
-
-    # Check for collisions between player and enemies
-    enemy_hits = pygame.sprite.spritecollide(player, enemies, False)
-    for enemy in enemy_hits:
-        player.health -= 1  # Decrease player health when hit by an enemy
-        if player.health <= 0:
-            running = False  # End the game if health reaches 0
-
-    # Display score and health on screen
-    font = pygame.font.Font(None, 36)
-    score_text = font.render(f"Score: {score}", True, (0, 0, 0))
-    health_text = font.render(f"Health: {player.health}", True, (0, 0, 0))
-    screen.blit(score_text, (10, 10))
-    screen.blit(health_text, (10, 40))
+    screen.fill(WHITE)  # Fill the screen with a white background
+    all_sprites.draw(screen)  # Draw all sprites
 
     pygame.display.flip()
 
