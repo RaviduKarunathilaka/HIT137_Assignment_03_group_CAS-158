@@ -30,6 +30,9 @@ pygame.display.set_caption("2D game window")
 # Set the frame rate
 clock = pygame.time.Clock()
 
+# Define fonts
+font = pygame.font.Font(None, 36)
+
 ### creating player classes ####
 class Player(pygame.sprite.Sprite):
     def __init__(self):
@@ -107,8 +110,9 @@ class Projectile(pygame.sprite.Sprite):
 class Enemy(pygame.sprite.Sprite):
     def __init__(self, x, y, target):
         super().__init__()
-        self.image = pygame.Surface((40, 40))
-        self.image.fill(RED)
+
+        self.image = pygame.image.load('dragon_image.png').convert_alpha()
+        self.image = pygame.transform.scale(self.image, (120, 120))  # Resize the image if needed
         self.rect = self.image.get_rect()
         self.rect.center = (x, y)
         self.speed_x = random.choice([-3, -2, -1, 1, 2, 3])  # Enemies move either left or right
@@ -172,6 +176,8 @@ camera = Camera()
 ENEMY_SPAWN_TIME = 2000  # 2 seconds for enemy spawn timer
 pygame.time.set_timer(pygame.USEREVENT, ENEMY_SPAWN_TIME)
 
+score = 0 # Initialize the score variable
+
 # Sprite groups
 all_sprites = pygame.sprite.Group()
 enemies = pygame.sprite.Group()  # Group for enemies
@@ -229,9 +235,21 @@ while running:
     # Check for projectile-enemy collisions
     hits = pygame.sprite.groupcollide(projectiles, enemies, True, True)
 
+    for hit in hits:
+        score += 10  #10 points for each enemy destroyed
+
     # Drawing
     screen.fill(WHITE)  # Fill the screen with a white background
     all_sprites.draw(screen)  # Draw all sprites
+
+        # Display score, lives, and health
+    score_text = font.render(f"Score: {score}", True, (0, 0, 0))  # Render score
+    health_text = font.render(f"Health: {player.health}", True, (0, 0, 0))  # Render health
+    lives_text = font.render(f"Lives: {player.lives}", True, (0, 0, 0))  # Render lives
+
+    screen.blit(score_text, (10, 10))  # Position score at top-left corner
+    screen.blit(health_text, (10, 40))  #Position health below score
+    screen.blit(lives_text, (10, 70))  # Position lives below health
 
     pygame.display.flip()
 
