@@ -1,7 +1,3 @@
-###--------------------------####
-###-------Quetion02----------####
-###--------------------------####
-
 # importing libraries
 import pygame
 import random
@@ -18,8 +14,9 @@ WHITE = (255, 255, 255)
 RED = (255, 0, 0)
 GREEN = (0, 255, 0)
 BLUE = (0, 0, 255)
+BLACK = (0, 0, 0)
 
-# defining a timer for enemy spawning
+# Defining a timer for enemy spawning
 ENEMY_SPAWN_TIME = 2000  # 2 seconds
 pygame.time.set_timer(pygame.USEREVENT, ENEMY_SPAWN_TIME)
 
@@ -32,24 +29,41 @@ clock = pygame.time.Clock()
 
 # Define fonts
 font = pygame.font.Font(None, 36)
+large_font = pygame.font.Font(None, 74)
 
-### creating player classes ####
+### Function to Draw Health Bars ###
+def draw_health_bar(surf, x, y, current_health, max_health, bar_length, bar_height):
+    # Calculate the health bar 
+    health_ratio = current_health / max_health
+    fill_width = int(bar_length * health_ratio)
+    
+    # Draw the background of the health bar (black)
+    pygame.draw.rect(surf, BLACK, (x, y, bar_length, bar_height))
+    
+    # Draw the filled portion of the health bar
+    if health_ratio > 0.5:
+        pygame.draw.rect(surf, GREEN, (x, y, fill_width, bar_height))
+    else:
+        pygame.draw.rect(surf, RED, (x, y, fill_width, bar_height))
+
+### Player Class ###
 class Player(pygame.sprite.Sprite):
     def __init__(self):
         super().__init__()
 
-        # Load the image of the player (replace 'hero_image.png' with your actual image file)
+        # Load the image of the player 
         self.image = pygame.image.load('hero_image.png').convert_alpha()
-        self.image = pygame.transform.scale(self.image, (50, 50))  # Resize the image if needed
+        self.image = pygame.transform.scale(self.image, (50, 50))  # Resize the image
 
         # Set the initial position of the player at middle left of the screen
         self.rect = self.image.get_rect()
-        self.rect.center = (50, HEIGHT // 2)  # Middle-left position of the screen
+        self.rect.center = (50, HEIGHT // 2) 
         self.speed_x = 0  # Horizontal speed initialized to 0
         self.speed_y = 0  # Vertical speed initialized to 0
         self.speed = 5  # Movement speed
-        self.health = 100  # health
-        self.lives = 3  # lives
+        self.health = 100  # Player's health
+        self.max_health = 100  # Max health of player
+        self.lives = 3  # Player's lives
 
     def update(self):
         # Update the player's position based on current speed (speed_x and speed_y)
@@ -66,32 +80,29 @@ class Player(pygame.sprite.Sprite):
         if self.rect.top < 0:
             self.rect.top = 0  # Prevent moving past the top edge
 
-    # Move the player left by setting the horizontal speed
     def move_left(self):
         self.speed_x = -self.speed
 
-    # Move the player right by setting the horizontal speed
     def move_right(self):
         self.speed_x = self.speed
 
-    # Move the player up by setting the vertical speed
     def move_up(self):
         self.speed_y = -self.speed
 
-    # Move the player down by setting the vertical speed
     def move_down(self):
         self.speed_y = self.speed
 
-    # Stop horizontal movement (reset horizontal speed to 0)
     def stop_horizontal(self):
         self.speed_x = 0
 
-    # Stop vertical movement (reset vertical speed to 0)
     def stop_vertical(self):
         self.speed_y = 0
 
-### creating projectile class ###
+    def draw_health(self, surf):
+        # Draw health bar below the player sprite
+        draw_health_bar(surf, self.rect.x, self.rect.y + 55, self.health, self.max_health, 50, 5)
 
+### Projectile Class ###
 class Projectile(pygame.sprite.Sprite):
     def __init__(self, x, y):
         super().__init__()
@@ -106,18 +117,30 @@ class Projectile(pygame.sprite.Sprite):
         if self.rect.left > WIDTH:
             self.kill()  # Remove projectile if it leaves the screen
 
-### creating enemy class ###
+### Enemy Class ###
 class Enemy(pygame.sprite.Sprite):
-    def __init__(self, x, y, target):
+    def __init__(self, x, y, target, level):
         super().__init__()
 
         self.image = pygame.image.load('dragon_image.png').convert_alpha()
-        self.image = pygame.transform.scale(self.image, (120, 120))  # Resize the image if needed
+        self.image = pygame.transform.scale(self.image, (120, 120))  # Resize the image
         self.rect = self.image.get_rect()
         self.rect.center = (x, y)
         self.speed_x = random.choice([-3, -2, -1, 1, 2, 3])  # Enemies move either left or right
         self.speed_y = random.choice([-3, -2, -1, 1, 2, 3])
         self.target = target
+
+        # Adjust enemy health based on level
+        self.level = level
+        if self.level == 1:
+            self.health = 1  # 1 shot to kill
+            self.max_health = 1
+        elif self.level == 2:
+            self.health = 5  # 5 shots to kill
+            self.max_health = 5
+        elif self.level == 3:
+            self.health = 10  # 10 shots to kill
+            self.max_health = 10
 
     def update(self):
         # Move enemy toward the player's current position
@@ -131,7 +154,6 @@ class Enemy(pygame.sprite.Sprite):
         else:
             self.rect.y -= 2  # Speed upward
 
-        # Wrap enemies around the screen if they go out of bounds (optional)
         if self.rect.right < 0:
             self.rect.left = WIDTH
         elif self.rect.left > WIDTH:
@@ -141,24 +163,16 @@ class Enemy(pygame.sprite.Sprite):
         elif self.rect.bottom < 0:
             self.rect.top = HEIGHT
 
+    def take_damage(self):
+        self.health -= 1
+        if self.health <= 0:
+            self.kill()  # Remove enemy when health is 0
 
-### create collectable class ###
-class Collectible(pygame.sprite.Sprite):
-    def __init__(self, x, y, type):
-        super().__init__()
-        self.type = type  # 'health' or 'life'
-        self.image = pygame.Surface((30, 30))
-        if self.type == 'health':
-            self.image.fill(GREEN)
-        elif self.type == 'life':
-            self.image.fill(WHITE)
-        self.rect = self.image.get_rect()
-        self.rect.center = (x, y)
-    
-    def update(self):
-        pass  # Update logic for collectible (e.g., moving, disappearing)
+    def draw_health(self, surf):
+        # Draw health bar above the enemy sprite
+        draw_health_bar(surf, self.rect.x, self.rect.y - 10, self.health, self.max_health, 50, 5)
 
-### levels and camera  ###
+### Camera Class ###
 class Camera:
     def __init__(self):
         self.offset = 0
@@ -171,18 +185,28 @@ class Camera:
 
 camera = Camera()
 
-### Main game loop ###
-# Constants for enemy spawning
-ENEMY_SPAWN_TIME = 2000  # 2 seconds for enemy spawn timer
-pygame.time.set_timer(pygame.USEREVENT, ENEMY_SPAWN_TIME)
+### Game Over Screen ###
+def game_over_screen(won):
+    screen.fill(WHITE)
+    if won:
+        text = large_font.render("Congratulations, you won!", True, GREEN)
+    else:
+        text = large_font.render("GAME OVER", True, RED)
+    
+    screen.blit(text, (WIDTH // 2 - text.get_width() // 2, HEIGHT // 2 - text.get_height() // 2))
+    pygame.display.flip()
+    pygame.time.wait(3000)  # Wait for 3 seconds
 
-score = 0 # Initialize the score variable
+    pygame.quit()  # Quit after showing the game over screen
+
+### Main game loop ###
+score = 0  # Initialize the score variable
+level = 1  # Initialize the level variable
 
 # Sprite groups
 all_sprites = pygame.sprite.Group()
 enemies = pygame.sprite.Group()  # Group for enemies
 projectiles = pygame.sprite.Group()  # Group for projectiles
-collectibles = pygame.sprite.Group()  # Group for collectibles
 
 player = Player()
 all_sprites.add(player)
@@ -198,10 +222,10 @@ while running:
 
         # Spawn an enemy every time the timer event occurs
         if event.type == pygame.USEREVENT:
-            # Spawn an enemy at a random position on the right side
+            # Spawn enemies at random positions on the right side based on level
             enemy_x = WIDTH - 40
             enemy_y = random.randint(0, HEIGHT - 40)
-            enemy = Enemy(enemy_x, enemy_y, player)
+            enemy = Enemy(enemy_x, enemy_y, player, level)  # Pass level to enemy
             all_sprites.add(enemy)
             enemies.add(enemy)
 
@@ -233,73 +257,58 @@ while running:
     all_sprites.update()
 
     # Check for projectile-enemy collisions
-    hits = pygame.sprite.groupcollide(projectiles, enemies, True, True)
+    hits = pygame.sprite.groupcollide(enemies, projectiles, False, True)  # Enemy and projectile collision
 
-    for hit in hits:
-        score += 10  #10 points for each enemy destroyed
+    for enemy, projectiles_hit in hits.items():
+        for projectile in projectiles_hit:
+            enemy.take_damage()  # Enemy takes damage on hit
+            if enemy.health <= 0:
+                score += 10  # Increase score when enemy dies
 
-    # Drawing
-    screen.fill(WHITE)  # Fill the screen with a white background
-    all_sprites.draw(screen)  # Draw all sprites
+    # Check for player-enemy collisions
+    player_hits = pygame.sprite.spritecollide(player, enemies, False)  # Check if player collides with any enemies
+    if player_hits:
+        player.health -= 10  # Reduce player health upon collision
+        for enemy in player_hits:
+            enemy.kill()  # Remove enemy on collision
 
-        # Display score, lives, and health
+    # Check if player won (reached 400 points)
+    if score >= 400:
+        game_over_screen(True)  
+        running = False  # End the game after winning
+
+    # Clear the screen by filling it with white color
+    screen.fill(WHITE)
+
+    # Draw everything
+    for sprite in all_sprites:
+        screen.blit(sprite.image, camera.apply(sprite.rect))
+
+    # Display score, health, and lives
     score_text = font.render(f"Score: {score}", True, (0, 0, 0))  # Render score
     health_text = font.render(f"Health: {player.health}", True, (0, 0, 0))  # Render health
     lives_text = font.render(f"Lives: {player.lives}", True, (0, 0, 0))  # Render lives
 
     screen.blit(score_text, (10, 10))  # Position score at top-left corner
-    screen.blit(health_text, (10, 40))  #Position health below score
+    screen.blit(health_text, (10, 40))  # Position health below score
     screen.blit(lives_text, (10, 70))  # Position lives below health
 
+    # Draw health bars for player and enemies
+    player.draw_health(screen)
+    for enemy in enemies:
+        enemy.draw_health(screen)
+
+    # Level progression logic
+    if score >= 50:  # Example: level 2 at 50 points
+        level = 2
+    if score >= 100:  # Example: level 3 at 100 points
+        level = 3
+
     pygame.display.flip()
+
+    # Check if player is out of lives or health
+    if player.health <= 0:
+        game_over_screen(False)  # Call game over screen with 'won' as False
+        running = False  # End the game loop
 
 pygame.quit()
-
-#scoring and health
-
-# score = 0 
-
-# Check for collisions
-hits = pygame.sprite.groupcollide(projectiles, enemies, True, True)
-for hit in hits:
-    score += 10
-
-# Collectibles
-collect_hits = pygame.sprite.spritecollide(player, collectibles, True)
-for collect in collect_hits:
-    if collect.type == 'health':
-        player.health += 20
-    elif collect.type == 'life':
-        player.lives += 1
-
-# Display score and health on screen
-font = pygame.font.Font(None, 36)
-score_text = font.render(f"Score: {score}", True, (0, 0, 0))
-health_text = font.render(f"Health: {player.health}", True, (0, 0, 0))
-screen.blit(score_text, (10, 10))
-screen.blit(health_text, (10, 40))
-
-##### game over and restart ######
-
-def game_over_screen():
-    font = pygame.font.Font(None, 74)
-    text = font.render("GAME OVER", True, RED)
-    screen.fill(WHITE)
-    screen.blit(text, (WIDTH // 2 - 150, HEIGHT // 2 - 50))
-    pygame.display.flip()
-    pygame.time.wait(3000)  # Wait for 3 seconds
-    
-    # Restart or quit logic
-    main()
-
-def main():
-    # Restart the game loop
-    pass  # (Put the entire game loop code here again)
-
-# Check if player is dead
-if player.lives == 0:
-    game_over_screen()
-
-
-
-
